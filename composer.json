@@ -1,0 +1,59 @@
+{
+    "name": "mariohamann/statamic-figma-assets",
+    "description": "A Statamic addon to import assets from Figma.",
+    "type": "statamic-addon",
+    "keywords": [
+        "statamic",
+        "addon",
+        "figma",
+        "assets"
+    ],
+    "license": "MIT",
+    "homepage": "https://github.com/mariohamann/statamic-figma-assets",
+    "support": {
+        "issues": "https://github.com/mariohamann/statamic-figma-assets/issues",
+        "source": "https://github.com/mariohamann/statamic-figma-assets"
+    },
+    "authors": [
+        {
+            "name": "Mario Hamann",
+            "email": "mariovhamann@gmail.com",
+            "homepage": "https://mariohamann.com",
+            "role": "Developer"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "MarioHamann\\StatamicFigmaAssets\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MarioHamann\\StatamicFigmaAssets\\Tests\\": "tests"
+        }
+    },
+    "require": {
+        "statamic/cms": "^5.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "pixelfear/composer-dist-plugin": true
+        }
+    },
+    "extra": {
+        "statamic": {
+            "name": "Statamic Figma Assets",
+            "description": "A Statamic addon to import assets from Figma."
+        },
+        "laravel": {
+            "providers": [
+                "MarioHamann\\StatamicFigmaAssets\\ServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
