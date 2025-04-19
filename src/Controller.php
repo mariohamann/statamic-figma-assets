@@ -86,6 +86,7 @@ class Controller extends BaseController
 
     public function fetchFigmaAssets($configIndex)
     {
+
         $config = $this->configs[$configIndex];
         $response = $this->fetchFigmaFile($config);
 
@@ -200,6 +201,7 @@ class Controller extends BaseController
         }
 
         [$imported, $reimported] = $this->fetchAndUploadAssets($assets, $config);
+        $this->clearProgressMessage($config);
 
         return back()->with(
             'success',
@@ -226,6 +228,7 @@ class Controller extends BaseController
 
     private function fetchAndUploadAssets(array $assets, array $config): array
     {
+        $total = count($assets);
         $imported = $reimported = 0;
         $mimeTypes = [
             'svg' => 'image/svg+xml',
@@ -301,6 +304,8 @@ class Controller extends BaseController
                             unlink($tmpPath); // Clean up
                             $imported++;
                         }
+
+                        $this->updateProgressMessage($config, "Imported " . ($imported + $reimported) . "/" . $total);
                     } catch (\Exception $e) {
                         logger()->error("Failed to import asset: {$asset['name']}", ['error' => $e->getMessage()]);
                     }
@@ -321,6 +326,33 @@ class Controller extends BaseController
         $asset->writeMeta($asset->generateMeta());
         AssetReuploaded::dispatch($asset);
         $asset->save();
+    }
+
+    public function progress($configIndex)
+    {
+        $config = $this->configs[$configIndex] ?? null;
+
+        $key = 'figma_progress_' . md5(json_encode($config));
+        $message = cache()->get($key, 'Processing...');
+
+        logger()->info(['message' => ($message)]);
+
+        return response()
+            ->json(['message' => ($message)])
+            ->header('Content-Type', 'application/json')
+            ->header('Access-Control-Allow-Origin', '*');
+    }
+
+    protected function updateProgressMessage(array $config, string $message): void
+    {
+        $key = 'figma_progress_' . md5(json_encode($config));
+        cache()->put($key, $message, now()->addMinutes(10));
+    }
+
+    protected function clearProgressMessage(array $config): void
+    {
+        $key = 'figma_progress_' . md5(json_encode($config));
+        cache()->forget($key);
     }
 
     static function optimize_variant_names(string $name): string

@@ -54,7 +54,7 @@
             </thead>
             <tbody>
                 @foreach ($configs as $index => $manager)
-                    <tr class="align-top">
+                    <tr class="align-top" data-figma-assets-config-id="{{ $index }}">
                         <td class="font-semibold text-gray-800 dark:text-dark-150">
                             {{ $manager['title'] ?? 'None' }}
                         </td>
@@ -77,8 +77,15 @@
                         <td class="text-sm text-gray dark:text-dark-150">
                             <span class="badge-pill-sm">{{ $manager['scale'] ?? 'Missing' }}</span>
                         </td>
-                        <td class="rtl:text-left ltr:text-right whitespace-nowrap">
-                            <div class="flex gap-1 justify-end">
+                        <td class="rtl:text-left ltr:text-right whitespace-nowrap relative">
+                            <div class="figma-assets-progress absolute left-0" hidden
+                                data-progress-url="{{ cp_route('utilities.figma-assets.progress', $index) }}">
+                                <div class="loader loader-xs"></div>
+                                <span class="text-sm text-gray dark:text-dark-150">
+                                    {{ __('Loading...') }}
+                                </span>
+                            </div>
+                            <div class="figma-assets-forms flex gap-1 justify-end">
                                 <form method="POST" action="{{ cp_route('utilities.figma-assets.info', $index) }}">
                                     @csrf
                                     <button type="submit" class="btn btn-xs">{{ __('Info') }}</button>
@@ -97,5 +104,71 @@
                 @endforeach
             </tbody>
         </table>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const table = document.querySelector('table.data-table');
+
+                table.addEventListener('click', function(event) {
+                    const button = event.target.closest('.figma-assets-forms button');
+                    if (!button) return;
+
+                    const td = button.closest('td');
+                    const row = td.closest('tr');
+                    const configId = row.dataset.figmaAssetsConfigId;
+
+                    const forms = td.querySelector('.figma-assets-forms');
+                    const progress = td.querySelector('.figma-assets-progress');
+                    const progressUrl = progress.dataset.progressUrl;
+
+                    // Prevent double polling if one is already active
+                    if (progress.dataset.polling === 'true') return;
+
+                    // Hide forms, show progress
+                    forms.style.visibility = 'hidden';
+                    progress.hidden = false;
+                    progress.dataset.polling = 'true';
+
+                    const poll = () => {
+                        fetch(progressUrl, {
+                                method: 'GET',
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.message) {
+                                    progress.textContent = data.message;
+                                } else {
+                                    // Done
+                                    clearInterval(interval);
+                                    forms.style.visibility = '';
+                                    progress.hidden = true;
+                                    progress.textContent = '';
+                                    progress.dataset.polling = 'false';
+                                }
+                            })
+                            .catch(err => {
+                                console.error(err);
+
+                                // Check if error is due to background navigation in Safari
+                                if (err.message.includes('Load failed')) {
+                                    console.log(
+                                        'Polling stopped due to background navigation issue in Safari.'
+                                    );
+
+                                    // Stop the polling if the error is related to Safari
+                                    clearInterval(interval);
+                                    progress.textContent = 'Polling stopped due to a navigation issue.';
+                                    forms.style.visibility = '';
+                                    progress.hidden = true;
+                                    progress.dataset.polling = 'false';
+                                }
+                            });
+                    };
+
+                    // Start polling
+                    poll(); // Call once immediately
+                    const interval = setInterval(poll, 1500);
+                });
+            });
+        </script>
     </div>
 @stop

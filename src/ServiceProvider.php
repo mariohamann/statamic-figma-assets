@@ -18,6 +18,7 @@ class ServiceProvider extends AddonServiceProvider
                 $router->post('/info/{configIndex}', [Controller::class, 'info'])->name('info');
                 $router->post('/import/{configIndex}', [Controller::class, 'import'])->name('import');
                 $router->post('/reimport/{configIndex}', [Controller::class, 'reimport'])->name('reimport');
+                $router->get('/progress/{configIndex}', [Controller::class, 'progress'])->name('progress');
             });
 
         $this->publishes([
