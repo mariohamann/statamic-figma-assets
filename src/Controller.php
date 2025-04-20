@@ -25,7 +25,7 @@ class Controller extends BaseController
         $this->configs = $this->getConfigDefaults($config);
     }
 
-    public function getConfigDefaults($configs)
+    private function getConfigDefaults($configs)
     {
         return collect($configs)->map(function ($config) {
             // Remove all nulls from the user-defined config
@@ -42,9 +42,10 @@ class Controller extends BaseController
                 'scale' => 1,
                 'export_children' => true,
                 'optimize_variant_names' => true,
-                'assets_transformer' => null,
                 'figma_batch_size' => 100,
                 'download_batch_size' => 15,
+                'assets_transformer' => null,
+                'before_upload' => null,
             ], $filteredConfig);
         })->toArray();
     }
@@ -54,13 +55,6 @@ class Controller extends BaseController
         return view('statamic-figma-assets::index', [
             'configs' => $this->configs,
         ]);
-    }
-
-    public function getAssetContainers()
-    {
-        return collect($this->configs)
-            ->pluck('assets_container')
-            ->map(fn($name) => AssetContainer::findByHandle($name));
     }
 
     public function info($configIndex)
@@ -84,7 +78,7 @@ class Controller extends BaseController
         return back()->with('success', "There are " . $countBefore . " assets available in Figma. (" . $countSkipped . " already exist in Statamic.)");
     }
 
-    public function fetchFigmaAssets($configIndex)
+    private function fetchFigmaAssets($configIndex)
     {
 
         $config = $this->configs[$configIndex];
@@ -185,7 +179,7 @@ class Controller extends BaseController
         return $this->importFigmaAssetsToStatamic($configIndex, true);
     }
 
-    public function importFigmaAssetsToStatamic($configIndex, $override)
+    private function importFigmaAssetsToStatamic($configIndex, $override)
     {
         $config = $this->configs[$configIndex];
         $assets = $this->fetchFigmaAssets($configIndex);
@@ -230,12 +224,6 @@ class Controller extends BaseController
     {
         $total = count($assets);
         $imported = $reimported = 0;
-        $mimeTypes = [
-            'svg' => 'image/svg+xml',
-            'jpg' => 'image/jpeg',
-            'png' => 'image/png',
-            'pdf' => 'application/pdf',
-        ];
 
         $figmaBatchSize = $config['figma_batch_size'];
         $downloadBatchSize = $config['download_batch_size'];
@@ -282,34 +270,13 @@ class Controller extends BaseController
                         continue;
                     }
 
-
                     try {
                         $fileContent = $responses[$k]->body();
                         if (!$fileContent) continue;
 
-                        $path = $asset['name'] . '.' . $config['format'];
-                        $existing = Asset::query()
-                            ->where('container', $config['assets_container'])
-                            ->where('path', $path)
-                            ->first();
-
-                        if ($existing) {
-                            $this->reuploadAsset($existing, $fileContent);
-                            $reimported++;
-                        } else {
-                            $tmpPath = tempnam(sys_get_temp_dir(), 'figma_') . '.' . $config['format'];
-                            file_put_contents($tmpPath, $fileContent);
-
-                            Asset::make()
-                                ->container($config['assets_container'])
-                                ->path($path)
-                                ->data(['title' => $asset['name']])
-                                ->upload(new UploadedFile($tmpPath, $path, $mimeTypes[$config['format']], null, true))
-                                ->save();
-
-                            unlink($tmpPath); // Clean up
-                            $imported++;
-                        }
+                        [$uploaded, $reuploaded] = $this->uploadOrReupload($asset, $fileContent, $config);
+                        $imported += $uploaded;
+                        $reimported += $reuploaded;
 
                         $this->updateProgressMessage($config, "Imported " . ($imported + $reimported) . "/" . $total);
                     } catch (\Exception $e) {
@@ -324,14 +291,58 @@ class Controller extends BaseController
         return [$imported, $reimported];
     }
 
-    private function reuploadAsset($asset, $content): void
+    private function uploadOrReupload($asset, $content, $config): array
     {
-        $asset->disk()->put($asset->path(), $content);
-        $asset->meta = null;
-        $asset->cacheStore()->forget($asset->metaCacheKey());
-        $asset->writeMeta($asset->generateMeta());
-        AssetReuploaded::dispatch($asset);
-        $asset->save();
+        $path = $asset['name'] . '.' . $config['format'];
+
+        $existing = Asset::query()
+            ->where('container', $config['assets_container'])
+            ->where('path', $path)
+            ->first();
+
+        if (!$existing || is_callable($config['before_upload'])) {
+            $tmpPath = tempnam(sys_get_temp_dir(), 'figma_') . '.' . $config['format'];
+
+            file_put_contents($tmpPath, $content);
+            $tmpPath = $this->runBeforeUploadCallback($tmpPath, $config);
+
+            if ($existing) {
+                $content = file_get_contents($tmpPath);
+            }
+        }
+
+        if ($existing) {
+            $existing->disk()->put($existing->resolvedPath(), $content);
+            $existing->meta = null;
+            $existing->cacheStore()->forget($existing->metaCacheKey());
+            $existing->writeMeta($existing->generateMeta());
+            AssetReuploaded::dispatch($existing);
+            $existing->save();
+
+            if (isset($tmpPath)) {
+                unlink($tmpPath);
+            }
+
+            return [0, 1];
+        } else {
+            $mimeTypes = [
+                'svg' => 'image/svg+xml',
+                'jpg' => 'image/jpeg',
+                'png' => 'image/png',
+                'pdf' => 'application/pdf',
+            ];
+
+            Asset::make()
+                ->container($config['assets_container'])
+                ->path($path)
+                ->data(['title' => $asset['name']])
+                ->upload(new UploadedFile($tmpPath, $path, $mimeTypes[$config['format']], null, true))
+                ->save();
+
+            unlink($tmpPath);
+
+            return [1, 0];
+        }
     }
 
     public function progress($configIndex)
@@ -340,8 +351,6 @@ class Controller extends BaseController
 
         $key = 'figma_progress_' . md5(json_encode($config));
         $message = cache()->get($key, 'Processing...');
-
-        logger()->info(['message' => ($message)]);
 
         return response()
             ->json(['message' => ($message)])
@@ -369,5 +378,19 @@ class Controller extends BaseController
             }, explode('--', $segment));
             return implode('-', $parts);
         })->implode('/');
+    }
+
+    private function runBeforeUploadCallback(string $tempPath, array $config): string
+    {
+        if (is_callable($config['before_upload'])) {
+            $result = call_user_func($config['before_upload'], $tempPath);
+
+            // If a new file path is returned, use that
+            if (is_string($result) && file_exists($result)) {
+                return $result;
+            }
+        }
+
+        return $tempPath;
     }
 }

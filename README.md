@@ -75,3 +75,43 @@ return [
     // ... more configurations
 ]
 ```
+
+### Example `assets_transformer`
+
+The `assets_transformer` is a callable that allows you to filter and rename assets before they are fetched from Figma. It receives the asset data as an array and should return the modified data.
+
+Here's an example that filters out assets starting with an underscore (e. g. `_icon` or `icons/_icon`):
+
+```php
+return [
+    [
+        // ... other configuration options
+        'assets_transformer' => function ($assets) {
+            $assets = array_filter(
+                $assets,
+                fn($asset) => !preg_match('/(^_|\/_)/', $asset['name'])
+            );
+            return $assets;
+        },
+    ],
+];
+
+```
+
+### Example `before_upload`
+
+The `before_upload` callback allows you to modify the asset before it is uploaded to the Statamic assets container. This can be useful for optimizing images or performing other transformations.
+
+Here we're using it to optimize SVG files using SVGO. If you want to use this, ensure to use the correct path to SVGO (e. g. via `which svgo`).
+
+```php
+return [
+    [
+        // ... other configuration options
+        'before_upload' => function ($path) {
+            exec("~/Library/pnpm/svgo $path");
+            return $path;
+        },
+    ],
+];
+```

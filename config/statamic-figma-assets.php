@@ -18,9 +18,10 @@
  *     'scale' => 1,
  *     'export_children' => true,
  *     'optimize_variant_names' => true,
- *     'assets_transformer' => null,
  *     'figma_batch_size' => 100,
  *     'download_batch_size' => 15,
+ *     'assets_transformer' => null,
+ *     'before_upload' => null,
  * ]
  */
 
@@ -105,6 +106,7 @@ return [
         | The format to export the Figma layers as.
         |
         | Options: 'svg', 'png', 'jpg', 'pdf'
+        |
         | Default: 'svg'
         |
         */
@@ -130,7 +132,6 @@ return [
         |--------------------------------------------------------------------------
         |
         | If true, exports all nested layers inside a targeted frame.
-        |
         | Useful for components with variants inside frames.
         |
         | Default: false
@@ -151,20 +152,6 @@ return [
         |
         */
         'optimize_variant_names' => env('FIGMA_OPTIMIZE_VARIANT_NAMES', false),
-
-        /*
-        |--------------------------------------------------------------------------
-        | assets_transformer
-        |--------------------------------------------------------------------------
-        |
-        | Optional callable class or closure to transform asset metadata
-        | before the assets are requested. Useful for custom
-        | filtering or name modifications.
-        |
-        | Example: MyTransformer::class or fn ($assets) => [...]
-        |
-        */
-        // 'assets_transformer' => fn($assets) => $assets,
 
         /*
         |--------------------------------------------------------------------------
@@ -191,5 +178,37 @@ return [
         |
         */
         'download_batch_size' => env('FIGMA_DOWNLOAD_BATCH_SIZE', 15),
+
+        /*
+        |--------------------------------------------------------------------------
+        | assets_transformer
+        |--------------------------------------------------------------------------
+        |
+        | Optional callable callback to transform asset metadata
+        | before the assets are requested. Useful for custom
+        | filtering or name modifications.
+        |
+        | Example: See README.md
+        |
+        | Default: null
+        |
+        */
+        // 'assets_transformer' => fn($assets) => $assets,
+
+        /*
+        |--------------------------------------------------------------------------
+        | before_upload
+        |--------------------------------------------------------------------------
+        |
+        | Optional callback to process asset files before upload.
+        | Useful for file optimization (e.g. via SVGO).
+        | Receives a path and should return a path.
+        |
+        | Example: See README.md
+        |
+        | Default: null
+        |
+        */
+        // 'before_upload' => fn($path) => $path,
     ],
 ];
