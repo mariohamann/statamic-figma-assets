@@ -154,7 +154,7 @@ class Controller extends BaseController
     private function cleanUpAssetNames(array &$assets, array $config): void
     {
         foreach ($assets as &$asset) {
-            $asset['name'] = $config['optimize_variant_names'] ? $this->optimize_variant_names($asset['name']) : $asset['name'];
+            $asset['name'] = $config['optimize_variant_names'] ? $this->optimizeVariantNames($asset['name']) : $asset['name'];
         }
     }
 
@@ -361,7 +361,7 @@ class Controller extends BaseController
         cache()->forget($key);
     }
 
-    static function optimize_variant_names(string $name): string
+    static function optimizeVariantNames(string $name): string
     {
         return collect(explode('/', $name))->map(function ($segment) {
             $parts = array_map(function ($sub) {
