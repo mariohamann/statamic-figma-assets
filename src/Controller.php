@@ -273,15 +273,21 @@ class Controller extends BaseController
                 );
 
                 foreach ($downloadBatch as $k => $asset) {
-                    if (empty($asset['url']) || !$responses[$k] || $responses[$k]->failed()) {
+                    $response = $responses[$k] ?? null;
+                    if (
+                        empty($asset['url']) ||
+                        !$response instanceof \Illuminate\Http\Client\Response ||
+                        $response->failed()
+                    ) {
                         continue;
                     }
+
 
                     try {
                         $fileContent = $responses[$k]->body();
                         if (!$fileContent) continue;
 
-                        $path = $this->optimize_variant_names($asset['name']) . '.' . $config['format'];
+                        $path = $asset['name'] . '.' . $config['format'];
                         $existing = Asset::query()
                             ->where('container', $config['assets_container'])
                             ->where('path', $path)
@@ -311,7 +317,7 @@ class Controller extends BaseController
                     }
                 }
 
-                gc_collect_cycles(); // Optional: Help free memory
+                gc_collect_cycles();
             }
         }
 
