@@ -3,7 +3,6 @@
 namespace Workbench\App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Statamic\Facades\User;
 
 class WorkbenchServiceProvider extends ServiceProvider
 {
@@ -17,7 +16,6 @@ class WorkbenchServiceProvider extends ServiceProvider
             'cache.default' => 'file',
             'queue.default' => 'sync',
             'session.driver' => 'file',
-            'statamic.users.repository' => 'file',
         ]);
     }
 
@@ -26,12 +24,5 @@ class WorkbenchServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if (! User::findByEmail('browser@example.test')) {
-            User::make()
-                ->email('browser@example.test')
-                ->password('browser-password')
-                ->makeSuper()
-                ->save();
-        }
     }
 }
