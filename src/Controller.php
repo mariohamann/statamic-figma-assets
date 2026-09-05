@@ -2,27 +2,23 @@
 
 namespace MarioHamann\StatamicFigmaAssets;
 
+use InvalidArgumentException;
+use MarioHamann\StatamicFigmaAssets\Contracts\AssetsTransformer;
+use MarioHamann\StatamicFigmaAssets\Contracts\BeforeUploadProcessor;
 use Statamic\Facades\AssetContainer;
 use Illuminate\Support\Facades\Http;
 use Statamic\Facades\Asset;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Statamic\Events\AssetReuploaded;
-use App\Http\Controllers\Controller as BaseController;
+use Statamic\Http\Controllers\CP\CpController;
 
-class Controller extends BaseController
+class Controller extends CpController
 {
     private $configs;
 
     public function __construct()
     {
-        // Manually load the config file as otherwise both configs are merged
-        $configPath = config_path('statamic-figma-assets.php');
-
-        $config = file_exists($configPath)
-            ? require $configPath
-            : config('statamic-figma-assets');
-
-        $this->configs = $this->getConfigDefaults($config);
+        $this->configs = $this->getConfigDefaults(config('statamic-figma-assets', []));
     }
 
     private function getConfigDefaults($configs)
@@ -35,6 +31,7 @@ class Controller extends BaseController
                 'assets_container' => AssetContainer::all()->first()?->handle(),
                 'title' => null,
                 'token' => null,
+                'figma_api_base_url' => 'https://api.figma.com/v1',
                 'file_id' => null,
                 'page_title' => null,
                 'frame_title' => null,
@@ -50,11 +47,16 @@ class Controller extends BaseController
         })->toArray();
     }
 
-    public function index()
+    public function displayConfigs(): array
     {
-        return view('statamic-figma-assets::index', [
-            'configs' => $this->configs,
-        ]);
+        return collect($this->configs)->map(fn ($config) => [
+            'title' => $config['title'],
+            'assets_container' => $config['assets_container'],
+            'page_title' => $config['page_title'],
+            'frame_title' => $config['frame_title'],
+            'format' => $config['format'],
+            'scale' => $config['scale'],
+        ])->values()->all();
     }
 
     public function info($configIndex)
@@ -104,7 +106,7 @@ class Controller extends BaseController
         return Http::withHeaders([
             'Content-Type' => 'application/json',
             'X-Figma-Token' => $config['token'],
-        ])->get("https://api.figma.com/v1/files/{$config['file_id']}");
+        ])->get($this->figmaApiUrl($config, "files/{$config['file_id']}"));
     }
 
     private function extractFrameAssets(array $document, array $config)
@@ -152,9 +154,19 @@ class Controller extends BaseController
         }
     }
 
-    private function applyArrayTransformer(array $assets, $assets_transformer)
+    private function applyArrayTransformer(array $assets, ?string $transformerClass): array
     {
-        return is_callable($assets_transformer) ? $assets_transformer($assets) : $assets;
+        if (! $transformerClass) {
+            return $assets;
+        }
+
+        $transformer = app($transformerClass);
+
+        if (! $transformer instanceof AssetsTransformer) {
+            throw new InvalidArgumentException("The configured assets transformer [{$transformerClass}] must implement " . AssetsTransformer::class . '.');
+        }
+
+        return $transformer->transform($assets);
     }
 
     private function removeDuplicatesByKey(array $items, string $key): array
@@ -182,6 +194,7 @@ class Controller extends BaseController
     private function importFigmaAssetsToStatamic($configIndex, $override)
     {
         $config = $this->configs[$configIndex];
+        $countSkipped = 0;
         $assets = $this->fetchFigmaAssets($configIndex);
 
         if ($assets instanceof \Illuminate\Http\RedirectResponse) {
@@ -236,7 +249,11 @@ class Controller extends BaseController
             $res = Http::withHeaders([
                 'Content-Type' => 'application/json',
                 'X-Figma-Token' => $config['token'],
-            ])->get("https://api.figma.com/v1/images/{$config['file_id']}?ids={$ids}&format={$config['format']}&scale={$config['scale']}");
+            ])->get($this->figmaApiUrl($config, "images/{$config['file_id']}"), [
+                'ids' => $ids,
+                'format' => $config['format'],
+                'scale' => $config['scale'],
+            ]);
 
             if ($res->failed()) continue;
 
@@ -294,13 +311,14 @@ class Controller extends BaseController
     private function uploadOrReupload($asset, $content, $config): array
     {
         $path = $asset['name'] . '.' . $config['format'];
+        $tmpPath = null;
 
         $existing = Asset::query()
             ->where('container', $config['assets_container'])
             ->where('path', $path)
             ->first();
 
-        if (!$existing || is_callable($config['before_upload'])) {
+        if (!$existing || $config['before_upload']) {
             $tmpPath = tempnam(sys_get_temp_dir(), 'figma_') . '.' . $config['format'];
 
             file_put_contents($tmpPath, $content);
@@ -312,14 +330,15 @@ class Controller extends BaseController
         }
 
         if ($existing) {
+            $originalFilename = $existing->filename();
             $existing->disk()->put($existing->resolvedPath(), $content);
             $existing->meta = null;
             $existing->cacheStore()->forget($existing->metaCacheKey());
             $existing->writeMeta($existing->generateMeta());
-            AssetReuploaded::dispatch($existing);
+            AssetReuploaded::dispatch($existing, $originalFilename);
             $existing->save();
 
-            if (isset($tmpPath)) {
+            if ($tmpPath) {
                 unlink($tmpPath);
             }
 
@@ -382,15 +401,28 @@ class Controller extends BaseController
 
     private function runBeforeUploadCallback(string $tempPath, array $config): string
     {
-        if (is_callable($config['before_upload'])) {
-            $result = call_user_func($config['before_upload'], $tempPath);
-
-            // If a new file path is returned, use that
-            if (is_string($result) && file_exists($result)) {
-                return $result;
-            }
+        if (! $config['before_upload']) {
+            return $tempPath;
         }
 
-        return $tempPath;
+        $processorClass = $config['before_upload'];
+        $processor = app($processorClass);
+
+        if (! $processor instanceof BeforeUploadProcessor) {
+            throw new InvalidArgumentException("The configured before-upload processor [{$processorClass}] must implement " . BeforeUploadProcessor::class . '.');
+        }
+
+        $processedPath = $processor->process($tempPath);
+
+        if (! is_file($processedPath)) {
+            throw new InvalidArgumentException("The configured before-upload processor [{$processorClass}] must return an existing file path.");
+        }
+
+        return $processedPath;
+    }
+
+    private function figmaApiUrl(array $config, string $path): string
+    {
+        return rtrim($config['figma_api_base_url'], '/') . '/' . ltrim($path, '/');
     }
 }

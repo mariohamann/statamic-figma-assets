@@ -52,6 +52,17 @@ return [
 
         /*
         |--------------------------------------------------------------------------
+        | figma_api_base_url
+        |--------------------------------------------------------------------------
+        |
+        | The base URL for the Figma API. Leave this at the default in production.
+        | It may be changed for a local development or test server.
+        |
+        */
+        'figma_api_base_url' => env('FIGMA_API_BASE_URL', 'https://api.figma.com/v1'),
+
+        /*
+        |--------------------------------------------------------------------------
         | file_id
         |--------------------------------------------------------------------------
         |
@@ -184,31 +195,29 @@ return [
         | assets_transformer
         |--------------------------------------------------------------------------
         |
-        | Optional callable callback to transform asset metadata
-        | before the assets are requested. Useful for custom
-        | filtering or name modifications.
+        | Optional class name implementing the addon's AssetsTransformer contract.
+        | The class is resolved through Laravel's container before assets are requested.
         |
         | Example: See README.md
         |
         | Default: null
         |
         */
-        // 'assets_transformer' => fn($assets) => $assets,
+        // 'assets_transformer' => App\Figma\FilterPrivateAssets::class,
 
         /*
         |--------------------------------------------------------------------------
         | before_upload
         |--------------------------------------------------------------------------
         |
-        | Optional callback to process asset files before upload.
-        | Useful for file optimization (e.g. via SVGO).
-        | Receives a path and should return a path.
+        | Optional class name implementing the addon's BeforeUploadProcessor contract.
+        | The class is resolved through Laravel's container and must return a file path.
         |
         | Example: See README.md
         |
         | Default: null
         |
         */
-        // 'before_upload' => fn($path) => $path,
+        // 'before_upload' => App\Figma\OptimizeSvg::class,
     ],
 ];

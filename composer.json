@@ -1,59 +1,93 @@
 {
-    "name": "mariohamann/statamic-figma-assets",
-    "description": "A Statamic addon to import assets from Figma.",
-    "type": "statamic-addon",
-    "keywords": [
-        "statamic",
-        "addon",
-        "figma",
-        "assets"
+  "name": "mariohamann/statamic-figma-assets",
+  "description": "A Statamic addon to import assets from Figma.",
+  "type": "statamic-addon",
+  "keywords": [
+    "statamic",
+    "addon",
+    "figma",
+    "assets"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/mariohamann/statamic-figma-assets",
+  "support": {
+    "issues": "https://github.com/mariohamann/statamic-figma-assets/issues",
+    "source": "https://github.com/mariohamann/statamic-figma-assets"
+  },
+  "authors": [
+    {
+      "name": "Mario Hamann",
+      "email": "mariovhamann@gmail.com",
+      "homepage": "https://mariohamann.com",
+      "role": "Developer"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "MarioHamann\\StatamicFigmaAssets\\": "src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "MarioHamann\\StatamicFigmaAssets\\Tests\\": "tests",
+      "Workbench\\App\\": "workbench/app/",
+      "Workbench\\Database\\Factories\\": "workbench/database/factories/",
+      "Workbench\\Database\\Seeders\\": "workbench/database/seeders/"
+    }
+  },
+  "require": {
+    "php": "^8.3",
+    "statamic/cms": "^6.0"
+  },
+  "require-dev": {
+    "orchestra/testbench": "^10.0"
+  },
+  "config": {
+    "allow-plugins": {
+      "pixelfear/composer-dist-plugin": true
+    }
+  },
+  "extra": {
+    "statamic": {
+      "name": "Statamic Figma Assets",
+      "description": "A Statamic addon to import assets from Figma."
+    },
+    "laravel": {
+      "providers": [
+        "MarioHamann\\StatamicFigmaAssets\\ServiceProvider"
+      ]
+    }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "scripts": {
+    "post-autoload-dump": [
+      "@clear",
+      "@prepare"
     ],
-    "license": "MIT",
-    "homepage": "https://github.com/mariohamann/statamic-figma-assets",
-    "support": {
-        "issues": "https://github.com/mariohamann/statamic-figma-assets/issues",
-        "source": "https://github.com/mariohamann/statamic-figma-assets"
-    },
-    "authors": [
-        {
-            "name": "Mario Hamann",
-            "email": "mariovhamann@gmail.com",
-            "homepage": "https://mariohamann.com",
-            "role": "Developer"
-        }
+    "clear": "@php vendor/bin/testbench package:purge-skeleton --ansi",
+    "prepare": "@php vendor/bin/testbench package:discover --ansi",
+    "build": "@php vendor/bin/testbench workbench:build --ansi",
+    "serve": [
+      "Composer\\Config::disableProcessTimeout",
+      "@build",
+      "@php vendor/bin/testbench serve --ansi"
     ],
-    "autoload": {
-        "psr-4": {
-            "MarioHamann\\StatamicFigmaAssets\\": "src"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "MarioHamann\\StatamicFigmaAssets\\Tests\\": "tests"
-        }
-    },
-    "require": {
-        "statamic/cms": "^5.0"
-    },
-    "require-dev": {
-        "orchestra/testbench": "^9.0"
-    },
-    "config": {
-        "allow-plugins": {
-            "pixelfear/composer-dist-plugin": true
-        }
-    },
-    "extra": {
-        "statamic": {
-            "name": "Statamic Figma Assets",
-            "description": "A Statamic addon to import assets from Figma."
-        },
-        "laravel": {
-            "providers": [
-                "MarioHamann\\StatamicFigmaAssets\\ServiceProvider"
-            ]
-        }
-    },
-    "minimum-stability": "stable",
-    "prefer-stable": true
+    "test": [
+      "@clear",
+      "@php vendor/bin/phpunit"
+    ],
+    "test-browser-prepare": [
+      "@php vendor/bin/testbench workbench:build --ansi",
+      "@php vendor/bin/testbench vendor:publish --tag=statamic-cp --force"
+    ],
+    "release:check": [
+      "@test",
+      "npm ci",
+      "npm run cp:build",
+      "git diff --exit-code -- public/build",
+      "@test-browser-prepare",
+      "npm run test:browser"
+    ]
+  }
 }

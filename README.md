@@ -21,6 +21,14 @@ composer require mariohamann/statamic-figma-assets
 
 Once installed, head over to `Utilities > Figma Assets` in the Statamic control panel to start importing.
 
+The compiled Control Panel assets are included in each release and published automatically by Statamic. Consumers do not need Node or an asset build step. To re-publish them after deployment, run:
+
+```bash
+php artisan vendor:publish --tag=statamic-figma-assets --force
+```
+
+Development, tests, and release procedures are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Configuration
 
 ### Quick setup (via .env)
@@ -29,6 +37,7 @@ If you're fine with using the defaults, it's enough to set some configuration va
 
 ```dotenv
 FIGMA_TOKEN=fig_token-here
+FIGMA_API_BASE_URL=https://api.figma.com/v1
 FIGMA_FILE_ID=file-id-here
 FIGMA_PAGE_TITLE="🎉 Assets"
 FIGMA_FRAME_TITLE="Components"
@@ -60,6 +69,7 @@ return [
     [
         'title' => 'SVG Icons',
         'token' => env('FIGMA_TOKEN'),
+        'figma_api_base_url' => env('FIGMA_API_BASE_URL', 'https://api.figma.com/v1'),
         'file_id' => env('FIGMA_FILE_ID'),
         'page_title' => 'Marketing Assets',
         'frame_title' => 'Logos',
@@ -76,42 +86,65 @@ return [
 ]
 ```
 
-### Example `assets_transformer`
+### Asset transformer
 
-The `assets_transformer` is a callable that allows you to filter and rename assets before they are fetched from Figma. It receives the asset data as an array and should return the modified data.
-
-Here's an example that filters out assets starting with an underscore (e. g. `_icon` or `icons/_icon`):
+`assets_transformer` is an optional class name implementing `MarioHamann\StatamicFigmaAssets\Contracts\AssetsTransformer`. Laravel resolves it from the container, so it may use dependency injection and remains compatible with `php artisan config:cache`.
 
 ```php
 return [
     [
         // ... other configuration options
-        'assets_transformer' => function ($assets) {
-            $assets = array_filter(
-                $assets,
-                fn($asset) => !preg_match('/(^_|\/_)/', $asset['name'])
-            );
-            return $assets;
-        },
+        'assets_transformer' => App\Figma\FilterPrivateAssets::class,
     ],
 ];
-
 ```
 
-### Example `before_upload`
+```php
+namespace App\Figma;
 
-The `before_upload` callback allows you to modify the asset before it is uploaded to the Statamic assets container. This can be useful for optimizing images or performing other transformations.
+use MarioHamann\StatamicFigmaAssets\Contracts\AssetsTransformer;
 
-Here we're using it to optimize SVG files using SVGO. If you want to use this, ensure to use the correct path to SVGO (e. g. via `which svgo`).
+class FilterPrivateAssets implements AssetsTransformer
+{
+    public function transform(array $assets): array
+    {
+        return array_values(array_filter(
+            $assets,
+            fn (array $asset) => ! preg_match('/(^_|\/_)/', $asset['name'])
+        ));
+    }
+}
+```
+
+### Before-upload processor
+
+`before_upload` is an optional class name implementing `MarioHamann\StatamicFigmaAssets\Contracts\BeforeUploadProcessor`. It receives the temporary file path and must return an existing file path.
+
+For example, an SVG processor may invoke SVGO:
 
 ```php
 return [
     [
         // ... other configuration options
-        'before_upload' => function ($path) {
-            exec("~/Library/pnpm/svgo $path");
-            return $path;
-        },
+        'before_upload' => App\Figma\OptimizeSvg::class,
     ],
 ];
 ```
+
+```php
+namespace App\Figma;
+
+use MarioHamann\StatamicFigmaAssets\Contracts\BeforeUploadProcessor;
+
+class OptimizeSvg implements BeforeUploadProcessor
+{
+    public function process(string $path): string
+    {
+        exec('svgo ' . escapeshellarg($path));
+
+        return $path;
+    }
+}
+```
+
+Closures are not supported in the configuration because Laravel cannot cache a configuration file containing closures. Run `php artisan config:cache` after configuring the addon to verify your deployment configuration.
