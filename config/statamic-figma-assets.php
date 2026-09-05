@@ -52,6 +52,17 @@ return [
 
         /*
         |--------------------------------------------------------------------------
+        | figma_api_base_url
+        |--------------------------------------------------------------------------
+        |
+        | The base URL for the Figma API. Leave this at the default in production.
+        | It may be changed for a local development or test server.
+        |
+        */
+        'figma_api_base_url' => env('FIGMA_API_BASE_URL', 'https://api.figma.com/v1'),
+
+        /*
+        |--------------------------------------------------------------------------
         | file_id
         |--------------------------------------------------------------------------
         |

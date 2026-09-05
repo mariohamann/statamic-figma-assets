@@ -1,0 +1,27 @@
+@import '@statamic/cms/ui.css';
+
+.figma-assets-table-wrapper {
+	overflow-x: auto;
+}
+
+.figma-assets-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.figma-assets-table th,
+.figma-assets-table td {
+	padding: 0.75rem;
+	text-align: left;
+	vertical-align: middle;
+}
+
+.figma-assets-actions-heading,
+.figma-assets-actions {
+	text-align: right;
+	white-space: nowrap;
+}
+
+.figma-assets-actions > * + * {
+	margin-left: 0.5rem;
+}

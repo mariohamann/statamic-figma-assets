@@ -7,9 +7,9 @@ use Illuminate\Support\Facades\Http;
 use Statamic\Facades\Asset;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Statamic\Events\AssetReuploaded;
-use App\Http\Controllers\Controller as BaseController;
+use Statamic\Http\Controllers\CP\CpController;
 
-class Controller extends BaseController
+class Controller extends CpController
 {
     private $configs;
 
@@ -35,6 +35,7 @@ class Controller extends BaseController
                 'assets_container' => AssetContainer::all()->first()?->handle(),
                 'title' => null,
                 'token' => null,
+                'figma_api_base_url' => 'https://api.figma.com/v1',
                 'file_id' => null,
                 'page_title' => null,
                 'frame_title' => null,
@@ -50,11 +51,16 @@ class Controller extends BaseController
         })->toArray();
     }
 
-    public function index()
+    public function displayConfigs(): array
     {
-        return view('statamic-figma-assets::index', [
-            'configs' => $this->configs,
-        ]);
+        return collect($this->configs)->map(fn ($config) => [
+            'title' => $config['title'],
+            'assets_container' => $config['assets_container'],
+            'page_title' => $config['page_title'],
+            'frame_title' => $config['frame_title'],
+            'format' => $config['format'],
+            'scale' => $config['scale'],
+        ])->values()->all();
     }
 
     public function info($configIndex)
@@ -104,7 +110,7 @@ class Controller extends BaseController
         return Http::withHeaders([
             'Content-Type' => 'application/json',
             'X-Figma-Token' => $config['token'],
-        ])->get("https://api.figma.com/v1/files/{$config['file_id']}");
+        ])->get($this->figmaApiUrl($config, "files/{$config['file_id']}"));
     }
 
     private function extractFrameAssets(array $document, array $config)
@@ -236,7 +242,11 @@ class Controller extends BaseController
             $res = Http::withHeaders([
                 'Content-Type' => 'application/json',
                 'X-Figma-Token' => $config['token'],
-            ])->get("https://api.figma.com/v1/images/{$config['file_id']}?ids={$ids}&format={$config['format']}&scale={$config['scale']}");
+            ])->get($this->figmaApiUrl($config, "images/{$config['file_id']}"), [
+                'ids' => $ids,
+                'format' => $config['format'],
+                'scale' => $config['scale'],
+            ]);
 
             if ($res->failed()) continue;
 
@@ -392,5 +402,10 @@ class Controller extends BaseController
         }
 
         return $tempPath;
+    }
+
+    private function figmaApiUrl(array $config, string $path): string
+    {
+        return rtrim($config['figma_api_base_url'], '/') . '/' . ltrim($path, '/');
     }
 }

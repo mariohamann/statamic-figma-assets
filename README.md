@@ -21,6 +21,21 @@ composer require mariohamann/statamic-figma-assets
 
 Once installed, head over to `Utilities > Figma Assets` in the Statamic control panel to start importing.
 
+## Control Panel development
+
+The Control Panel utility uses Statamic v6's Inertia and Vue component APIs. Install the Node dependencies and use the following commands while developing the addon:
+
+```bash
+npm install
+npm run cp:dev
+```
+
+Build the published Control Panel assets for production with:
+
+```bash
+npm run cp:build
+```
+
 ## Configuration
 
 ### Quick setup (via .env)
@@ -29,6 +44,7 @@ If you're fine with using the defaults, it's enough to set some configuration va
 
 ```dotenv
 FIGMA_TOKEN=fig_token-here
+FIGMA_API_BASE_URL=https://api.figma.com/v1
 FIGMA_FILE_ID=file-id-here
 FIGMA_PAGE_TITLE="🎉 Assets"
 FIGMA_FRAME_TITLE="Components"
@@ -60,6 +76,7 @@ return [
     [
         'title' => 'SVG Icons',
         'token' => env('FIGMA_TOKEN'),
+        'figma_api_base_url' => env('FIGMA_API_BASE_URL', 'https://api.figma.com/v1'),
         'file_id' => env('FIGMA_FILE_ID'),
         'page_title' => 'Marketing Assets',
         'frame_title' => 'Logos',
