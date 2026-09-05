@@ -2,6 +2,9 @@
 
 namespace MarioHamann\StatamicFigmaAssets;
 
+use InvalidArgumentException;
+use MarioHamann\StatamicFigmaAssets\Contracts\AssetsTransformer;
+use MarioHamann\StatamicFigmaAssets\Contracts\BeforeUploadProcessor;
 use Statamic\Facades\AssetContainer;
 use Illuminate\Support\Facades\Http;
 use Statamic\Facades\Asset;
@@ -15,14 +18,7 @@ class Controller extends CpController
 
     public function __construct()
     {
-        // Manually load the config file as otherwise both configs are merged
-        $configPath = config_path('statamic-figma-assets.php');
-
-        $config = file_exists($configPath)
-            ? require $configPath
-            : config('statamic-figma-assets');
-
-        $this->configs = $this->getConfigDefaults($config);
+        $this->configs = $this->getConfigDefaults(config('statamic-figma-assets', []));
     }
 
     private function getConfigDefaults($configs)
@@ -158,9 +154,19 @@ class Controller extends CpController
         }
     }
 
-    private function applyArrayTransformer(array $assets, $assets_transformer)
+    private function applyArrayTransformer(array $assets, ?string $transformerClass): array
     {
-        return is_callable($assets_transformer) ? $assets_transformer($assets) : $assets;
+        if (! $transformerClass) {
+            return $assets;
+        }
+
+        $transformer = app($transformerClass);
+
+        if (! $transformer instanceof AssetsTransformer) {
+            throw new InvalidArgumentException("The configured assets transformer [{$transformerClass}] must implement " . AssetsTransformer::class . '.');
+        }
+
+        return $transformer->transform($assets);
     }
 
     private function removeDuplicatesByKey(array $items, string $key): array
@@ -312,7 +318,7 @@ class Controller extends CpController
             ->where('path', $path)
             ->first();
 
-        if (!$existing || is_callable($config['before_upload'])) {
+        if (!$existing || $config['before_upload']) {
             $tmpPath = tempnam(sys_get_temp_dir(), 'figma_') . '.' . $config['format'];
 
             file_put_contents($tmpPath, $content);
@@ -395,16 +401,24 @@ class Controller extends CpController
 
     private function runBeforeUploadCallback(string $tempPath, array $config): string
     {
-        if (is_callable($config['before_upload'])) {
-            $result = call_user_func($config['before_upload'], $tempPath);
-
-            // If a new file path is returned, use that
-            if (is_string($result) && file_exists($result)) {
-                return $result;
-            }
+        if (! $config['before_upload']) {
+            return $tempPath;
         }
 
-        return $tempPath;
+        $processorClass = $config['before_upload'];
+        $processor = app($processorClass);
+
+        if (! $processor instanceof BeforeUploadProcessor) {
+            throw new InvalidArgumentException("The configured before-upload processor [{$processorClass}] must implement " . BeforeUploadProcessor::class . '.');
+        }
+
+        $processedPath = $processor->process($tempPath);
+
+        if (! is_file($processedPath)) {
+            throw new InvalidArgumentException("The configured before-upload processor [{$processorClass}] must return an existing file path.");
+        }
+
+        return $processedPath;
     }
 
     private function figmaApiUrl(array $config, string $path): string

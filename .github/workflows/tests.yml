@@ -39,6 +39,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run cp:build
+      - run: git diff --exit-code -- public/build
       - run: ./vendor/bin/testbench workbench:build --ansi
       - run: ./vendor/bin/testbench vendor:publish --tag=statamic-cp --force
       - run: npx playwright install --with-deps chromium

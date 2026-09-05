@@ -10,6 +10,13 @@ use Statamic\Facades\AssetContainer;
 
 class ExampleTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        $this->artisan('config:clear');
+
+        parent::tearDown();
+    }
+
     public function test_display_configs_exclude_sensitive_values(): void
     {
         config()->set('statamic-figma-assets', [[
@@ -48,5 +55,10 @@ class ExampleTest extends TestCase
         app(Controller::class)->info(0);
 
         Http::assertSent(fn ($request) => $request->url() === 'http://figma.test/v1/files/test-file');
+    }
+
+    public function test_package_configuration_can_be_cached(): void
+    {
+        $this->artisan('config:cache')->assertExitCode(0);
     }
 }

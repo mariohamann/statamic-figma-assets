@@ -80,6 +80,14 @@
     "test-browser-prepare": [
       "@php vendor/bin/testbench workbench:build --ansi",
       "@php vendor/bin/testbench vendor:publish --tag=statamic-cp --force"
+    ],
+    "release:check": [
+      "@test",
+      "npm ci",
+      "npm run cp:build",
+      "git diff --exit-code -- public/build",
+      "@test-browser-prepare",
+      "npm run test:browser"
     ]
   }
 }

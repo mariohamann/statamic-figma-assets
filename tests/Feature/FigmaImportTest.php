@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use MarioHamann\StatamicFigmaAssets\Controller;
 use MarioHamann\StatamicFigmaAssets\Tests\TestCase;
+use MarioHamann\StatamicFigmaAssets\Tests\Support\FilterCheckAsset;
+use MarioHamann\StatamicFigmaAssets\Tests\Support\ReplaceSvgContent;
 
 class FigmaImportTest extends TestCase
 {
@@ -35,9 +37,40 @@ class FigmaImportTest extends TestCase
         $this->assertSame($updatedSvg, Storage::disk('figma-assets')->get('icons/check.svg'));
     }
 
-    private function configureFigmaImport(): void
+    public function test_assets_transformer_is_resolved_from_its_configured_class(): void
     {
-        config()->set('statamic-figma-assets', [[
+        $this->configureFigmaImport(['assets_transformer' => FilterCheckAsset::class]);
+        $this->fakeFigma();
+
+        app(Controller::class)->import(0);
+
+        Storage::disk('figma-assets')->assertMissing('icons/check.svg');
+    }
+
+    public function test_before_upload_processor_is_resolved_from_its_configured_class(): void
+    {
+        $this->configureFigmaImport(['before_upload' => ReplaceSvgContent::class]);
+        $this->fakeFigma();
+
+        app(Controller::class)->import(0);
+
+        $this->assertSame('<svg><path d="M1 1"/></svg>', Storage::disk('figma-assets')->get('icons/check.svg'));
+    }
+
+    public function test_invalid_transformer_configuration_fails_with_a_clear_error(): void
+    {
+        $this->configureFigmaImport(['assets_transformer' => \stdClass::class]);
+        $this->fakeFigma();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('must implement ' . \MarioHamann\StatamicFigmaAssets\Contracts\AssetsTransformer::class);
+
+        app(Controller::class)->import(0);
+    }
+
+    private function configureFigmaImport(array $overrides = []): void
+    {
+        config()->set('statamic-figma-assets', [array_merge([
             'title' => 'Test assets',
             'token' => 'test-token',
             'figma_api_base_url' => 'http://figma.test/v1',
@@ -46,7 +79,7 @@ class FigmaImportTest extends TestCase
             'assets_container' => 'figma-assets',
             'format' => 'svg',
             'export_children' => false,
-        ]]);
+        ], $overrides)]);
     }
 
     private function fakeFigma(): void
