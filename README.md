@@ -36,6 +36,22 @@ Build the published Control Panel assets for production with:
 npm run cp:build
 ```
 
+## Tests
+
+The PHP test suite boots a real Statamic application through Testbench and fakes every Figma API and download request. It writes assets to an isolated temporary Statamic asset container.
+
+```bash
+./vendor/bin/phpunit
+```
+
+The browser smoke suite serves the Workbench Statamic application and exercises the real Control Panel login boundary. It requires the Control Panel bundles to be prepared first.
+
+```bash
+npm run cp:build
+composer run test-browser-prepare
+npm run test:browser
+```
+
 ## Configuration
 
 ### Quick setup (via .env)

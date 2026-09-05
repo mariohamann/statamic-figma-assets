@@ -2,9 +2,11 @@
   "private": true,
   "scripts": {
     "cp:dev": "vite --config vite-cp.config.js",
-    "cp:build": "vite build --config vite-cp.config.js"
+    "cp:build": "vite build --config vite-cp.config.js",
+    "test:browser": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "laravel-vite-plugin": "^2.0.0",
     "vite": "^7.0.0"
   },

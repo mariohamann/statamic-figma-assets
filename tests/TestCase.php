@@ -18,6 +18,9 @@ abstract class TestCase extends AddonTestCase
     {
         parent::getEnvironmentSetUp($app);
 
+        $app['config']->set('cache.default', 'array');
+        $app['config']->set('queue.default', 'sync');
+        $app['config']->set('session.driver', 'array');
         $app['config']->set('filesystems.disks.figma-assets', [
             'driver' => 'local',
             'root' => storage_path('framework/testing/figma-assets'),
