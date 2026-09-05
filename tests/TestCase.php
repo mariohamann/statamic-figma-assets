@@ -6,9 +6,12 @@ use Illuminate\Support\Facades\Storage;
 use MarioHamann\StatamicFigmaAssets\ServiceProvider;
 use Statamic\Facades\AssetContainer;
 use Statamic\Testing\AddonTestCase;
+use Statamic\Testing\Concerns\PreventsSavingStacheItemsToDisk;
 
 abstract class TestCase extends AddonTestCase
 {
+    use PreventsSavingStacheItemsToDisk;
+
     protected string $addonServiceProvider = ServiceProvider::class;
 
     protected function getEnvironmentSetUp($app): void
