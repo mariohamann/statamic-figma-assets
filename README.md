@@ -27,36 +27,7 @@ The compiled Control Panel assets are included in each release and published aut
 php artisan vendor:publish --tag=statamic-figma-assets --force
 ```
 
-## Control Panel development
-
-The Control Panel utility uses Statamic v6's Inertia and Vue component APIs. Install the Node dependencies and use the following commands while developing the addon:
-
-```bash
-npm install
-npm run cp:dev
-```
-
-Build the published Control Panel assets for production with:
-
-```bash
-npm run cp:build
-```
-
-## Tests
-
-The PHP suite boots a real Statamic application through Testbench and fakes every Figma API and download request. It writes assets to an isolated temporary Statamic asset container.
-
-```bash
-./vendor/bin/phpunit
-```
-
-The browser suite serves the Workbench Statamic application and exercises the real Control Panel boundary.
-
-```bash
-npm run cp:build
-composer run test-browser-prepare
-npm run test:browser
-```
+Development, tests, and release procedures are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Configuration
 
