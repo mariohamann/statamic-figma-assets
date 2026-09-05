@@ -1,0 +1,16 @@
+{
+    "document": {
+        "children": [
+            {
+                "id": "page-1",
+                "name": "Exports",
+                "children": [
+                    {
+                        "id": "icon-check",
+                        "name": "icons/check"
+                    }
+                ]
+            }
+        ]
+    }
+}

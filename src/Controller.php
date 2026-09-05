@@ -322,11 +322,12 @@ class Controller extends CpController
         }
 
         if ($existing) {
+            $originalFilename = $existing->filename();
             $existing->disk()->put($existing->resolvedPath(), $content);
             $existing->meta = null;
             $existing->cacheStore()->forget($existing->metaCacheKey());
             $existing->writeMeta($existing->generateMeta());
-            AssetReuploaded::dispatch($existing);
+            AssetReuploaded::dispatch($existing, $originalFilename);
             $existing->save();
 
             if (isset($tmpPath)) {
