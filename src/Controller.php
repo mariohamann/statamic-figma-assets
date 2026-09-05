@@ -188,6 +188,7 @@ class Controller extends CpController
     private function importFigmaAssetsToStatamic($configIndex, $override)
     {
         $config = $this->configs[$configIndex];
+        $countSkipped = 0;
         $assets = $this->fetchFigmaAssets($configIndex);
 
         if ($assets instanceof \Illuminate\Http\RedirectResponse) {
@@ -304,6 +305,7 @@ class Controller extends CpController
     private function uploadOrReupload($asset, $content, $config): array
     {
         $path = $asset['name'] . '.' . $config['format'];
+        $tmpPath = null;
 
         $existing = Asset::query()
             ->where('container', $config['assets_container'])
@@ -330,7 +332,7 @@ class Controller extends CpController
             AssetReuploaded::dispatch($existing, $originalFilename);
             $existing->save();
 
-            if (isset($tmpPath)) {
+            if ($tmpPath) {
                 unlink($tmpPath);
             }
 
